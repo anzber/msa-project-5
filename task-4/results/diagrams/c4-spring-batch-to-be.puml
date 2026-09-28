@@ -1,0 +1,31 @@
+@startuml c4-spring-batch-to-be
+!include <C4/C4_Container>
+
+title Диаграмма контейнеров C4 - To Be: TradeWare с внедрённым Spring Batch (ETL)
+
+Person(user, "Сотрудник склада", "Формирует отчёт об остатках по Excel-шаблону и загружает его как CSV через веб-интерфейс")
+
+System_Boundary(tradeware, "TradeWare (GCP)") {
+  Container(web, "Веб-приложение (ERP)", "Angular, WebSockets", "Интерфейс для сотрудников склада: загрузка отчётов, просмотр остатков и истории перемещений")
+  Container(api, "Монолит / API", "Java 11, WildFly", "Онлайн-операции с остатками, предварительная валидация формата, приём файлов, API для партнёров")
+  Container(batch, "Модуль пакетной обработки", "Java 17, Spring Boot, Spring Batch", "ETL: чтение CSV из GCS порциями, валидация и обогащение из справочной БД, пакетная запись в БД номенклатуры; retry/skip и перезапуск; метрики и логи")
+  ContainerDb(nomenclature, "БД номенклатуры", "PostgreSQL (Cloud SQL)", "Актуальные остатки товаров (products)")
+  ContainerDb(refdb, "БД справочных данных", "PostgreSQL", "Характеристики товаров, промоакции, программа лояльности (loyality_data)")
+  Container(storage, "Файловое хранилище", "Google Cloud Storage", "Загруженные CSV-файлы отчётов об остатках")
+}
+
+System_Ext(scheduler, "Планировщик", "k8s CronJob / Cloud Scheduler / Cloud Run Jobs - запуск ETL в ночном окне")
+System_Ext(mon, "Мониторинг и логирование", "Prometheus / Grafana / ELK - метрики и логи пакетных запусков (задание 5)")
+
+Rel(user, web, "Загружает CSV-отчёт, смотрит остатки", "HTTPS")
+Rel(web, api, "Вызывает через", "REST / WebSocket")
+Rel(api, storage, "Сохраняет загруженный файл", "GCS API")
+Rel(api, nomenclature, "Читает и обновляет остатки онлайн", "JDBC")
+Rel(scheduler, batch, "Запускает ETL-задание по расписанию")
+Rel(batch, storage, "Читает CSV-отчёты порциями", "GCS API")
+Rel(batch, refdb, "Читает справочники и данные лояльности", "JDBC")
+Rel(batch, nomenclature, "Пакетно записывает обновлённые остатки (upsert)", "JDBC")
+Rel(batch, mon, "Публикует метрики и логи", "Micrometer / SLF4J")
+Rel(batch, api, "Уведомляет о завершении загрузки", "REST / событие")
+
+@enduml

@@ -1,0 +1,22 @@
+# Вспомогательный pod для проверки содержимого PVC с готовыми CSV.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: transport-export-check
+  namespace: transport-analytics
+spec:
+  restartPolicy: Never
+  containers:
+    - name: check
+      image: busybox:1.36
+      command:
+        - sh
+        - -c
+        - "ls -lh /export && echo '--- head -5 ---' && head -5 /export/*.csv && echo '--- wc -l ---' && wc -l /export/*.csv"
+      volumeMounts:
+        - name: export
+          mountPath: /export
+  volumes:
+    - name: export
+      persistentVolumeClaim:
+        claimName: transport-export-pvc

@@ -1,0 +1,21 @@
+groups:
+  - name: batch-processing-alerts
+    rules:
+
+      - alert: BatchAppDown
+        expr: up{job="batch-processing"} == 0
+        for: 20s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Batch-приложение недоступно"
+          description: "Prometheus не может опросить {{ $labels.instance }} более 20 секунд."
+
+      - alert: BatchJobFailed
+        expr: batch_job_last_success{job="batch-processing"} == 0
+        for: 10s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Пакетный job завершился с ошибкой"
+          description: "Последний запуск importProductJob завершился не со статусом COMPLETED (batch_job_last_success = 0)."

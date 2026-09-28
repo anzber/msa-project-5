@@ -1,0 +1,53 @@
+# Ежедневная выгрузка данных о перевозках в CSV.
+# Расписание: каждый день ровно в 20:00 (0 20 * * *).
+#
+# Образ transport-exporter:1.0 должен быть доступен кластеру.
+# В MiniKube образ загружается командой: minikube image load transport-exporter:1.0
+# В продакшене - из registry (например, registry.example.com/transport-exporter:1.0).
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: transport-export
+  namespace: transport-analytics
+  labels:
+    app: transport-export
+spec:
+  schedule: "0 20 * * *"
+  timeZone: "Europe/Moscow"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 600
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app: transport-export
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: exporter
+              image: transport-exporter:1.0
+              imagePullPolicy: IfNotPresent
+              envFrom:
+                - configMapRef:
+                    name: transport-db-config
+                - secretRef:
+                    name: transport-db-secret
+              volumeMounts:
+                - name: export
+                  mountPath: /export
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 128Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+          volumes:
+            - name: export
+              persistentVolumeClaim:
+                claimName: transport-export-pvc
