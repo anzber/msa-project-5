@@ -1,0 +1,21 @@
+@startuml c4-context-to-be
+!include <C4/C4_Context>
+
+title Диаграмма контекста C4 - To Be: формирование прайс-листов для B2B (Spring Batch)
+
+Person(b2b, "B2B-клиент", "Получает ежедневный кастомный прайс-лист")
+
+System(batch, "Модуль пакетной обработки прайс-листов", "Spring Batch. Объединяет данные о товарах, категориях, клиентах и ценах и выгружает кастомные CSV-прайс-листы")
+
+SystemDb(db, "БД прайс-листов", "PostgreSQL: products, categories, clients, client_prices")
+System_Ext(storage, "Объектное хранилище", "CSV-файлы прайс-листов (S3-совместимое)")
+System_Ext(sched, "Планировщик", "k8s CronJob - запуск ежедневно в 06:00")
+System_Ext(mon, "Мониторинг и логирование", "Prometheus / Grafana / ELK")
+
+Rel(sched, batch, "Запускает по расписанию (06:00)")
+Rel(batch, db, "Читает справочники и цены", "JDBC")
+Rel(batch, storage, "Записывает CSV-прайс-листы", "S3 API")
+Rel(storage, b2b, "Предоставляет прайс-листы", "ссылка / выгрузка")
+Rel(batch, mon, "Отправляет метрики и логи", "Micrometer / SLF4J")
+
+@enduml

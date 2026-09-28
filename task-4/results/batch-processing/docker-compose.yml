@@ -1,0 +1,26 @@
+services:
+  postgresdb:
+    image: postgres
+    restart: unless-stopped
+    env_file: ./.env
+    environment:
+      - POSTGRES_USER=$POSTGRESDB_USER
+      - POSTGRES_PASSWORD=$POSTGRESDB_ROOT_PASSWORD
+      - POSTGRES_DB=$POSTGRESDB_DATABASE
+    ports:
+      - $POSTGRESDB_LOCAL_PORT:$POSTGRESDB_DOCKER_PORT
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $POSTGRESDB_USER -d $POSTGRESDB_DATABASE"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    depends_on:
+      postgresdb:
+        condition: service_healthy
+    image: batch-processing
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    restart: no

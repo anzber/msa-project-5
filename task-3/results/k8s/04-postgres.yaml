@@ -1,0 +1,66 @@
+# Демонстрационная БД аналитики по перевозкам (PostgreSQL).
+# В реальной системе используется существующая БД; здесь она разворачивается
+# вместе со схемой и тестовыми данными (см. ConfigMap transport-postgres-initdb).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: transport-postgres
+  namespace: transport-analytics
+  labels:
+    app: transport-postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: transport-postgres
+  template:
+    metadata:
+      labels:
+        app: transport-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16
+          ports:
+            - containerPort: 5432
+          envFrom:
+            - secretRef:
+                name: transport-db-secret
+          volumeMounts:
+            - name: pgdata
+              mountPath: /var/lib/postgresql/data
+            - name: initdb
+              mountPath: /docker-entrypoint-initdb.d
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "transport", "-d", "transport"]
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: "2"
+              memory: 1Gi
+      volumes:
+        - name: pgdata
+          emptyDir: {}
+        - name: initdb
+          configMap:
+            name: transport-postgres-initdb
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: transport-postgres
+  namespace: transport-analytics
+  labels:
+    app: transport-postgres
+spec:
+  selector:
+    app: transport-postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432

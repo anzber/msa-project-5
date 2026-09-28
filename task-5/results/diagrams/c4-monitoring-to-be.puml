@@ -1,0 +1,36 @@
+@startuml c4-monitoring-to-be
+!include <C4/C4_Container>
+
+title Диаграмма контейнеров C4 - To Be: Spring Batch с мониторингом, логированием и оповещением
+
+Person(ops, "Инженер / дежурный", "Смотрит дашборды, разбирает логи, получает оповещения")
+
+System_Boundary(platform, "Платформа пакетной обработки (docker-compose локально, GCP в проде)") {
+  Container(app, "Spring Batch ETL-приложение", "Java 17, Spring Boot, Spring Batch, Micrometer", "Выполняет ETL; отдаёт метрики по /actuator/prometheus; пишет структурированные JSON-логи в stdout")
+  ContainerDb(db, "PostgreSQL", "PostgreSQL 16", "Таблицы products и loyality_data, метаданные Spring Batch")
+}
+
+System_Boundary(obs, "Наблюдаемость") {
+  Container(prometheus, "Prometheus", "Prometheus + alert rules", "Скрейпит метрики приложения и оценивает правила алертов")
+  Container(grafana, "Grafana", "Grafana", "Дашборд с ключевыми метриками приложения")
+  Container(filebeat, "filebeat", "Elastic Beats", "Собирает JSON-логи приложения из docker-логов и отправляет в Logstash")
+  Container(logstash, "Logstash", "Logstash", "Разбирает логи и индексирует их в Elasticsearch")
+  ContainerDb(es, "Elasticsearch", "Elasticsearch 7.17", "Хранилище логов")
+  Container(kibana, "Kibana", "Kibana 7.17", "Поиск и просмотр логов")
+}
+
+System_Ext(alertmanager, "Alertmanager (прод)", "Маршрутизация и отправка уведомлений в email/Slack")
+
+Rel(app, db, "Читает и пишет данные, читает справочники", "JDBC")
+Rel(prometheus, app, "Скрейпит метрики", "HTTP /actuator/prometheus")
+Rel(grafana, prometheus, "Запрашивает метрики", "PromQL / HTTP")
+Rel(filebeat, app, "Читает JSON-логи", "docker logs (stdout)")
+Rel(filebeat, logstash, "Отправляет логи", "Beats / Lumberjack")
+Rel(logstash, es, "Индексирует логи", "HTTP")
+Rel(kibana, es, "Ищет и показывает логи", "HTTP")
+Rel(ops, grafana, "Просматривает дашборд", "HTTPS")
+Rel(ops, kibana, "Ищет логи", "HTTPS")
+Rel(ops, prometheus, "Проверяет состояние алертов", "HTTPS")
+Rel(prometheus, alertmanager, "Передаёт сработавшие алерты", "HTTP (прод)")
+
+@enduml

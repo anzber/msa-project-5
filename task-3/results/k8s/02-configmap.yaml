@@ -1,0 +1,12 @@
+# Параметры экспортёра: к какой БД подключаться и какую таблицу выгружать.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: transport-db-config
+  namespace: transport-analytics
+data:
+  DB_HOST: transport-postgres
+  DB_PORT: "5432"
+  DB_NAME: transport
+  EXPORT_TABLE: shipments
+  OUTPUT_DIR: /export

@@ -1,0 +1,82 @@
+# Схема и тестовые данные БД аналитики по перевозкам.
+# Скрипт выполняется один раз при инициализации контейнера PostgreSQL.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: transport-postgres-initdb
+  namespace: transport-analytics
+data:
+  init.sql: |
+    CREATE TABLE clients (
+        id          bigint PRIMARY KEY,
+        name        text NOT NULL,
+        inn         text NOT NULL,
+        created_at  timestamptz NOT NULL DEFAULT now()
+    );
+
+    CREATE TABLE drivers (
+        id          bigint PRIMARY KEY,
+        full_name   text NOT NULL,
+        license_no  text NOT NULL
+    );
+
+    CREATE TABLE vehicles (
+        id          bigint PRIMARY KEY,
+        plate_no    text NOT NULL,
+        model       text NOT NULL
+    );
+
+    CREATE TABLE shipments (
+        id           bigint PRIMARY KEY,
+        client_id    bigint NOT NULL,
+        driver_id    bigint NOT NULL,
+        vehicle_id   bigint NOT NULL,
+        origin       text NOT NULL,
+        destination  text NOT NULL,
+        status       text NOT NULL,
+        amount       numeric(12,2) NOT NULL,
+        created_at   timestamptz NOT NULL
+    );
+
+    CREATE TABLE shipment_events (
+        id          bigint PRIMARY KEY,
+        shipment_id bigint NOT NULL,
+        event_type  text NOT NULL,
+        event_time  timestamptz NOT NULL
+    );
+
+    INSERT INTO clients (id, name, inn)
+    SELECT g, 'Client ' || g, lpad((1000000000 + g)::text, 10, '0')
+    FROM generate_series(1, 5000) AS g;
+
+    INSERT INTO drivers (id, full_name, license_no)
+    SELECT g, 'Driver ' || g, 'LIC' || lpad(g::text, 6, '0')
+    FROM generate_series(1, 2000) AS g;
+
+    INSERT INTO vehicles (id, plate_no, model)
+    SELECT g, 'A' || lpad(g::text, 4, '0') || 'AA', 'Model ' || (g % 50)
+    FROM generate_series(1, 1000) AS g;
+
+    INSERT INTO shipments (id, client_id, driver_id, vehicle_id, origin, destination, status, amount, created_at)
+    SELECT
+        g,
+        1 + (g % 5000),
+        1 + (g % 2000),
+        1 + (g % 1000),
+        'City ' || (g % 100),
+        'City ' || ((g * 7) % 100),
+        (ARRAY['NEW', 'IN_TRANSIT', 'DELIVERED', 'CANCELLED'])[1 + (g % 4)],
+        round((random() * 100000)::numeric, 2),
+        now() - (g || ' minutes')::interval
+    FROM generate_series(1, 100000) AS g;
+
+    INSERT INTO shipment_events (id, shipment_id, event_type, event_time)
+    SELECT
+        g,
+        1 + (g % 100000),
+        (ARRAY['CREATED', 'PICKED_UP', 'IN_TRANSIT', 'DELIVERED'])[1 + (g % 4)],
+        now() - (g || ' minutes')::interval
+    FROM generate_series(1, 500000) AS g;
+
+    CREATE INDEX idx_shipments_client ON shipments (client_id);
+    CREATE INDEX idx_shipment_events_shipment ON shipment_events (shipment_id);

@@ -1,0 +1,6 @@
+logs/
+plugins/__pycache__/
+dags/__pycache__/
+data/customer_report.jsonl
+data/.load_attempt
+.env

@@ -1,0 +1,12 @@
+# Хранилище для готовых CSV-выгрузок.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: transport-export-pvc
+  namespace: transport-analytics
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi

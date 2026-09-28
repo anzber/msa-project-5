@@ -1,0 +1,38 @@
+filebeat.inputs:
+  - type: docker
+    combine_partial: true
+    containers:
+      path: "/usr/share/dockerlogs/data"
+      stream: "stdout"
+      ids:
+        - "*"
+    exclude_files: ['\.gz$']
+    ignore_older: 10m
+
+processors:
+  # Разворачиваем JSON-логи приложения в поля события.
+  - decode_json_fields:
+      fields: ["log", "message", "msg"]
+      target: ""
+      overwrite_keys: true
+  # Добавляем метаданные контейнера (нужно для фильтра по имени).
+  - add_docker_metadata:
+      host: "unix:///var/run/docker.sock"
+  # Оставляем только логи нашего batch-приложения.
+  - drop_event:
+      when:
+        not:
+          equals:
+            container.name: "task6-app"
+
+filebeat.config.modules:
+  path: ${path.config}/modules.d/*.yml
+  reload.enabled: false
+
+output.logstash:
+  hosts: ["logstash"]
+
+logging.level: info
+logging.to_files: false
+logging.to_syslog: false
+logging.metrics.enabled: false
